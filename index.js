@@ -408,6 +408,8 @@ module.exports = class Protomux {
 
   _ondata (buffer) {
     try {
+      if (buffer.byteLength === 0) return
+
       const state = { buffer, start: 0, end: buffer.byteLength }
       this._decode(c.uint.decode(state), state)
     } catch (err) {

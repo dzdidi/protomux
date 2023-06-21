@@ -430,6 +430,56 @@ test('open + send + close on same tick', async function (t) {
   bc.close()
 })
 
+test('empty message does not destroy connection', async function (t) {
+  const aS = new SecretStream(true)
+  const a = new Protomux(aS)
+  const bS = new SecretStream(false)
+  const b = new Protomux(bS)
+
+  replicate(a, b)
+
+  t.plan(4)
+
+  let closed = false
+  const aC = a.createChannel({
+    protocol: 'foo',
+    ondestroy () {
+      if (closed) {
+        t.pass('should be destroyed after close')
+      } else {
+        t.fail('should not be destroyed before close')
+      }
+    },
+    onclose () {
+      t.pass('a remote closed')
+      closed = true
+    }
+  })
+  aC.open()
+
+  const bC = b.createChannel({
+    protocol: 'foo',
+    onopen () {
+      t.fail('b opened')
+    },
+    onclose () {
+      t.pass('b closed')
+    }
+  })
+  bC.open()
+
+  const aCM = aC.addMessage({
+    encoding: c.string,
+    onmessage (message) { t.is(message, 'hello') }
+  })
+
+  bS.write(b4a.alloc(0)) 
+
+  bC.addMessage({ encoding: c.string }).send('hello')
+
+  bC.close()
+})
+
 function replicate (a, b) {
   a.stream.rawStream.pipe(b.stream.rawStream).pipe(a.stream.rawStream)
 }
